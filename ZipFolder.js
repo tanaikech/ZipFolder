@@ -2,10 +2,11 @@
  * Main method for ZipFolder.<br>
  * @param {String} folderId folderId
  * @param {String} folderDelimiter Delimiter between folder names. If this is given, folder tree is used as a prefix of filename when there are folders in the folderId. If this is not given, the prefix is not used.
+ * @param {Object} options Options.
  * @return {Blob} Return Blob which is a created zip file.
  */
-function zip(folderId, folderDelim) {
-    return new ZipFolder(folderId, folderDelim || null).zip();
+function zip(folderId, folderDelim, options) {
+    return new ZipFolder(folderId, folderDelim || null, options).zip();
 }
 ;
 (function(r) {
@@ -15,10 +16,11 @@ function zip(folderId, folderDelim) {
 
     ZipFolder.name = "ZipFolder";
 
-    function ZipFolder(id, folderDelim) {
+    function ZipFolder(id, folderDelim, options) {
       this.folderId = id;
       this.folderName = DriveApp.getFileById(id).getName();
       this.folderDelim = folderDelim;
+      this.options = options || {};
     }
 
     ZipFolder.prototype.zip = function() {
@@ -146,9 +148,17 @@ function zip(folderId, folderDelim) {
           continue;
         } else if (mime === "application/vnd.google-apps.script") {
           url = "https://script.google.com/feeds/download/export?id=" + id + "&format=json";
-          blob = (fetch.call(this, url, method, null, headers)).getBlob().setName(name + ".json");
+          if ("noExtension" in this.options && this.options.noExtension) {
+            blob = (fetch.call(this, url, method, null, headers)).getBlob().setName(name);
+          } else {
+            blob = (fetch.call(this, url, method, null, headers)).getBlob().setName(name + ".json");
+          }
         } else if (~mime.indexOf('google-apps')) {
-          mimeInf = mime === "application/vnd.google-apps.spreadsheet" ? ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", name + ".xlsx"] : mime === "application/vnd.google-apps.document" ? ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", name + ".docx"] : mime === "application/vnd.google-apps.presentation" ? ["application/vnd.openxmlformats-officedocument.presentationml.presentation", name + ".pptx"] : ["application/pdf", name + ".pdf"];
+          if ("noExtension" in this.options && this.options.noExtension) {
+            mimeInf = mime === "application/vnd.google-apps.spreadsheet" ? ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", name] : mime === "application/vnd.google-apps.document" ? ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", name] : mime === "application/vnd.google-apps.presentation" ? ["application/vnd.openxmlformats-officedocument.presentationml.presentation", name] : ["application/pdf", name];
+          } else {
+            mimeInf = mime === "application/vnd.google-apps.spreadsheet" ? ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", name + ".xlsx"] : mime === "application/vnd.google-apps.document" ? ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", name + ".docx"] : mime === "application/vnd.google-apps.presentation" ? ["application/vnd.openxmlformats-officedocument.presentationml.presentation", name + ".pptx"] : ["application/pdf", name + ".pdf"];
+          }
           url = "https://www.googleapis.com/drive/v3/files/" + id + "/export?mimeType=" + mimeInf[0];
           blob = (fetch.call(this, url, method, null, headers)).getBlob().setName(mimeInf[1]);
         } else {
